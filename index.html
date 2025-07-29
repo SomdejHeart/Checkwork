@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>บันทึกวันทำงาน</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+</head>
+<body>
+    <div class="container">
+        <h1>บันทึกวันทำงานและคำนวณเงินเดือน</h1>
+
+        <div class="calendar-header">
+            <button id="prevMonth">&lt;</button>
+            <h2 id="currentMonthYear"></h2>
+            <button id="nextMonth">&gt;</button>
+        </div>
+        <div class="month-navigation">
+            <select id="yearSelector"></select>
+            <select id="monthJumpSelector"></select>
+            <button id="goToCurrentMonth">เดือนปัจจุบัน</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid">
+            </div>
+
+        <div class="summary">
+            <h3>สรุปยอดประจำเดือน</h3>
+            <p>มาทำงานเต็มวัน: <span id="fullDayCount">0</span> วัน</p>
+            <p>มาทำงานครึ่งวัน: <span id="halfDayCount">0</span> วัน</p>
+            <p>OT: <span id="otCount">0</span> วัน</p>
+            <p>ยอดเงินรวมประจำเดือน: <span id="totalAmount">0</span> บาท</p>
+            <button id="resetData">รีเซ็ตข้อมูลทั้งหมด</button>
+        </div>
+
+        <div class="monthly-summary-container">
+            <h3>ยอดรวมแต่ละเดือน</h3>
+            <select id="monthSelector">
+                </select>
+            <div id="selectedMonthSummary">
+                </div>
+        </div>
+    </div>
+
+    <div id="dayDetailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="modalDate"></h2>
+            <div class="modal-options">
+                <label>
+                    <input type="radio" name="attendanceStatus" value="full-day"> ☀️ มาทำงานเต็มวัน
+                </label>
+                <label>
+                    <input type="radio" name="attendanceStatus" value="half-day"> 🌤️ มาทำงานครึ่งวัน
+                </label>
+                <label>
+                    <input type="radio" name="attendanceStatus" value="ot"> ⚡ ทำ OT
+                </label>
+                 <label>
+                    <input type="radio" name="attendanceStatus" value="leave"> 🌴 ลา
+                </label>
+                <label>
+                    <input type="radio" name="attendanceStatus" value="none" checked> ⚪ ไม่มีสถานะ
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button id="saveDayStatus">บันทึก</button>
+                <button id="cancelDayStatus">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
