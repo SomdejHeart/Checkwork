@@ -1,51 +1,60 @@
-{
-    "name": "บันทึกวันทำงาน",
-    "short_name": "บันทึกวันทำงาน",
-    "description": "แอปบันทึกวันทำงานและคำนวณเงินเดือน",
-    "start_url": "./index.html",
-    "display": "standalone",
-    "background_color": "#f4f7f6",
-    "theme_color": "#007bff",
-    "icons": [
-        {
-            "src": "icons/icon-72x72.png",
-            "sizes": "72x72",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-96x96.png",
-            "sizes": "96x96",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-128x128.png",
-            "sizes": "128x128",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-144x144.png",
-            "sizes": "144x144",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-152x152.png",
-            "sizes": "152x152",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-192x192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-384x384.png",
-            "sizes": "384x384",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/icon-512x512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        }
-    ]
-}
+const CACHE_NAME = 'work-tracker-cache-v2'; // <--- UPDATED CACHE NAME TO v2
+const urlsToCache = [
+    './', // Caches the root (index.html)
+    './index.html',
+    './style.css',
+    './script.js',
+    './manifest.json',
+    // Add paths to your icons here
+    './icons/icon-72x72.png',
+    './icons/icon-96x96.png',
+    './icons/icon-128x128.png',
+    './icons/icon-144x144.png',
+    './icons/icon-152x152.png',
+    './icons/icon-192x192.png',
+    './icons/icon-384x384.png',
+    './icons/icon-512x512.png'
+];
+
+// Install event: Cache all the assets
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => {
+                console.log('Opened cache');
+                return cache.addAll(urlsToCache);
+            })
+    );
+});
+
+// Fetch event: Serve cached content when offline
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                // Cache hit - return response
+                if (response) {
+                    return response;
+                }
+                // No cache hit - fetch from network
+                return fetch(event.request);
+            })
+    );
+});
+
+// Activate event: Clean up old caches
+self.addEventListener('activate', (event) => {
+    const cacheWhitelist = [CACHE_NAME];
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        // Delete old caches
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+});
