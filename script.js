@@ -1,3 +1,17 @@
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+            .then((registration) => {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch((error) => {
+                console.log('ServiceWorker registration failed: ', error);
+            });
+    });
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const calendarGrid = document.getElementById('calendarGrid');
     const currentMonthYearElem = document.getElementById('currentMonthYear');
@@ -17,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal elements
     const dayDetailModal = document.getElementById('dayDetailModal');
     const modalDateElem = document.getElementById('modalDate');
-    const modalRadioButtons = document.querySelectorAll('input[name="attendanceStatus"]');
+    const attendanceTypeCheckboxes = document.querySelectorAll('input[name="attendanceType"]');
     const saveDayStatusBtn = document.getElementById('saveDayStatus');
     const cancelDayStatusBtn = document.getElementById('cancelDayStatus');
     const closeButton = document.querySelector('.close-button');
@@ -25,36 +39,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Toast Notification Container
     const toastContainer = document.getElementById('toastContainer');
 
-    let currentDate = new Date(); // Stores the currently displayed month/year
-    // attendanceData stores data structured by month: {'YYYY-MM': {'YYYY-MM-DD': {fullDay: true, halfDay: false, ot: true, leave: false}}}
+    let currentDate = new Date();
     const attendanceDataByMonth = JSON.parse(localStorage.getItem('attendanceDataByMonth')) || {};
 
-    // Rates
     const FULL_DAY_RATE = 400;
     const HALF_DAY_RATE = 200;
     const OT_RATE = 500;
 
-    let selectedDayForModal = null; // To store the date clicked for the modal
+    let selectedDayForModal = null;
 
     // --- Core Calendar Rendering ---
     function renderCalendar() {
-        // Add fade-in animation class
         calendarGrid.classList.remove('fade-in');
-        void calendarGrid.offsetWidth; // Trigger reflow to restart animation
+        void calendarGrid.offsetWidth;
         calendarGrid.classList.add('fade-in');
 
-        calendarGrid.innerHTML = ''; // Clear previous calendar
+        calendarGrid.innerHTML = '';
         const year = currentDate.getFullYear();
-        const month = currentDate.getMonth(); // 0-indexed month
+        const month = currentDate.getMonth();
         const currentMonthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
         currentMonthYearElem.textContent = new Date(year, month).toLocaleString('th-TH', { month: 'long', year: 'numeric' });
 
         const firstDayOfMonth = new Date(year, month, 1);
-        const lastDayOfMonth = new Date(year, month + 1, 0); // Last day of current month
+        const lastDayOfMonth = new Date(year, month + 1, 0);
         const daysInMonth = lastDayOfMonth.getDate();
 
-        // Add day headers (อาทิตย์, จันทร์, etc.)
         const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
         dayNames.forEach(day => {
             const dayHeader = document.createElement('div');
@@ -63,21 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
             calendarGrid.appendChild(dayHeader);
         });
 
-        // Add empty cells for the days before the first day of the month
-        const startDay = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
+        const startDay = firstDayOfMonth.getDay();
         for (let i = 0; i < startDay; i++) {
             const emptyDay = document.createElement('div');
             emptyDay.classList.add('day', 'empty');
             calendarGrid.appendChild(emptyDay);
         }
 
-        // Initialize month data if not exists
         if (!attendanceDataByMonth[currentMonthKey]) {
             attendanceDataByMonth[currentMonthKey] = {};
         }
         const currentMonthData = attendanceDataByMonth[currentMonthKey];
 
-        // Add days of the month
         for (let i = 1; i <= daysInMonth; i++) {
             const dayElem = document.createElement('div');
             dayElem.classList.add('day');
@@ -85,18 +92,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
             const today = new Date();
 
-            // Highlight today
             if (fullDate === `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`) {
                 dayElem.classList.add('today');
             }
 
-            // Highlight weekends
             const dayOfWeek = new Date(year, month, i).getDay();
-            if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday (0) or Saturday (6)
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
                 dayElem.classList.add('weekend');
             }
 
-            // Get current attendance status for the day from the current month's data
             const dayAttendance = currentMonthData[fullDate] || {};
 
             let statusIndicatorsHTML = '';
@@ -114,16 +118,15 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             calendarGrid.appendChild(dayElem);
         }
-        addDayClickListener(); // Attach click listeners to new day elements
-        updateSummaryForCurrentMonth(); // Update summary for the currently displayed month
-        populateMonthSelector(); // Update month selector options
-        populateJumpSelectors(); // Update year/month jump selectors
+        addDayClickListener();
+        updateSummaryForCurrentMonth();
+        populateMonthSelector();
+        populateJumpSelectors(); // Ensure these are updated with current month/year
     }
 
     // --- Event Listeners for Day Click (to open Modal) ---
     function addDayClickListener() {
         document.querySelectorAll('.day-content').forEach(dayContent => {
-            // Remove existing listener to prevent duplicates
             dayContent.removeEventListener('click', openDayDetailModal);
             dayContent.addEventListener('click', openDayDetailModal);
         });
@@ -136,28 +139,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const monthKey = selectedDayForModal.substring(0, 7);
         const dayData = attendanceDataByMonth[monthKey]?.[selectedDayForModal] || {fullDay: false, halfDay: false, ot: false, leave: false};
 
-        // Set radio button based on current data
-        if (dayData.fullDay) {
-            document.querySelector('input[name="attendanceStatus"][value="full-day"]').checked = true;
-        } else if (dayData.halfDay) {
-            document.querySelector('input[name="attendanceStatus"][value="half-day"]').checked = true;
-        } else if (dayData.ot) { // If OT is checked but no day status, select OT (though usually OT is with full/half)
-             document.querySelector('input[name="attendanceStatus"][value="ot"]').checked = true;
-        } else if (dayData.leave) {
-            document.querySelector('input[name="attendanceStatus"][value="leave"]').checked = true;
-        } else {
-            document.querySelector('input[name="attendanceStatus"][value="none"]').checked = true;
-        }
+        attendanceTypeCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            if (dayData[checkbox.value]) {
+                checkbox.checked = true;
+            }
+        });
         
-        // This is a special case: OT can be selected with full/half day.
-        // If a day is full/half/leave, and also has OT, make sure OT is also shown as an option.
-        // For simplicity, in this modal, we're only selecting ONE status. 
-        // A more complex modal could use checkboxes for full/half/leave and a separate checkbox for OT.
-        // For now, if OT is checked, we default to showing it in the radio, but if full/half/leave is also checked,
-        // the radio button structure means only one can be shown as selected initially.
-        // The save logic below will correctly handle combining them.
+        const hasAnyStatus = dayData.fullDay || dayData.halfDay || dayData.ot || dayData.leave;
+        document.querySelector('input[name="attendanceType"][value="none"]').checked = !hasAnyStatus;
 
-        dayDetailModal.style.display = 'flex'; // Show modal
+        dayDetailModal.style.display = 'flex';
     }
 
     // --- Modal Actions ---
@@ -165,48 +157,89 @@ document.addEventListener('DOMContentLoaded', () => {
         const date = selectedDayForModal;
         const monthKey = date.substring(0, 7);
         
-        // Get the selected value from the radio buttons
-        const selectedStatus = document.querySelector('input[name="attendanceStatus"]:checked').value;
-
-        // Reset all statuses for the day first
-        attendanceDataByMonth[monthKey][date] = {
+        if (!attendanceDataByMonth[monthKey]) {
+            attendanceDataByMonth[monthKey] = {};
+        }
+        
+        const newDayData = {
             fullDay: false,
             halfDay: false,
             ot: false,
             leave: false
         };
 
-        // Set the chosen status
-        if (selectedStatus === 'full-day') {
-            attendanceDataByMonth[monthKey][date].fullDay = true;
-        } else if (selectedStatus === 'half-day') {
-            attendanceDataByMonth[monthKey][date].halfDay = true;
-        } else if (selectedStatus === 'ot') {
-            attendanceDataByMonth[monthKey][date].ot = true;
-        } else if (selectedStatus === 'leave') {
-            attendanceDataByMonth[monthKey][date].leave = true;
-        } 
-        // If 'none', all are already false
+        let selectedNone = false;
+        attendanceTypeCheckboxes.forEach(checkbox => {
+            if (checkbox.value === 'none') {
+                selectedNone = checkbox.checked;
+            } else {
+                newDayData[checkbox.value] = checkbox.checked;
+            }
+        });
 
+        if (selectedNone) {
+            attendanceDataByMonth[monthKey][date] = {
+                fullDay: false,
+                halfDay: false,
+                ot: false,
+                leave: false
+            };
+        } else {
+            if (newDayData.fullDay && newDayData.halfDay) {
+                newDayData.halfDay = false;
+            }
+            if (newDayData.leave) {
+                newDayData.fullDay = false;
+                newDayData.halfDay = false;
+            }
+
+            attendanceDataByMonth[monthKey][date] = newDayData;
+        }
+        
         localStorage.setItem('attendanceDataByMonth', JSON.stringify(attendanceDataByMonth));
-        renderCalendar(); // Re-render to update the day status indicators
-        dayDetailModal.style.display = 'none'; // Hide modal
+        renderCalendar();
+        dayDetailModal.style.display = 'none';
         showToast('บันทึกข้อมูลเรียบร้อย!');
     });
 
+
     cancelDayStatusBtn.addEventListener('click', () => {
-        dayDetailModal.style.display = 'none'; // Hide modal
+        dayDetailModal.style.display = 'none';
     });
 
     closeButton.addEventListener('click', () => {
-        dayDetailModal.style.display = 'none'; // Hide modal
+        dayDetailModal.style.display = 'none';
     });
 
-    // Close modal if clicked outside of content
     window.addEventListener('click', (event) => {
         if (event.target == dayDetailModal) {
             dayDetailModal.style.display = 'none';
         }
+    });
+
+    // Event listener for 'None' checkbox to make it exclusive
+    document.querySelector('input[name="attendanceType"][value="none"]').addEventListener('change', (event) => {
+        if (event.target.checked) {
+            attendanceTypeCheckboxes.forEach(checkbox => {
+                if (checkbox.value !== 'none') {
+                    checkbox.checked = false;
+                }
+            });
+        }
+    });
+
+    // Event listener for other checkboxes to uncheck 'None'
+    document.querySelectorAll('input[name="attendanceType"]:not([value="none"])').forEach(checkbox => {
+        checkbox.addEventListener('change', (event) => {
+            if (event.target.checked) {
+                document.querySelector('input[name="attendanceType"][value="none"]').checked = false;
+            } else {
+                const anyOtherChecked = Array.from(attendanceTypeCheckboxes).some(cb => cb.checked && cb.value !== 'none');
+                if (!anyOtherChecked) {
+                    document.querySelector('input[name="attendanceType"][value="none"]').checked = true;
+                }
+            }
+        });
     });
 
 
@@ -215,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let fullDayCount = 0;
         let halfDayCount = 0;
         let otCount = 0;
-        let leaveCount = 0; // New: Leave count
+        let leaveCount = 0;
         let totalAmount = 0;
 
         const monthData = attendanceDataByMonth[yearMonth] || {};
@@ -233,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 otCount++;
                 totalAmount += OT_RATE;
             }
-            if (data.leave) { // Count leave days
+            if (data.leave) {
                 leaveCount++;
             }
         }
@@ -259,15 +292,15 @@ document.addEventListener('DOMContentLoaded', () => {
         fullDayCountElem.textContent = summary.fullDayCount;
         halfDayCountElem.textContent = summary.halfDayCount;
         otCountElem.textContent = summary.otCount;
-        // No separate leave display in main summary, but it's calculated
         totalAmountElem.textContent = summary.totalAmount.toLocaleString('th-TH');
     }
 
     // --- Month & Year Navigation ---
     function populateJumpSelectors() {
-        const currentYear = new Date().getFullYear();
-        const startYear = currentYear - 5; // Show 5 years back
-        const endYear = currentYear + 5;   // Show 5 years forward
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const startYear = currentYear - 5;
+        const endYear = currentYear + 5;
 
         yearSelector.innerHTML = '';
         for (let y = startYear; y <= endYear; y++) {
@@ -276,17 +309,30 @@ document.addEventListener('DOMContentLoaded', () => {
             option.textContent = y;
             yearSelector.appendChild(option);
         }
+        // Set year selector to the current displayed year
         yearSelector.value = currentDate.getFullYear();
 
         monthJumpSelector.innerHTML = '';
         for (let m = 0; m < 12; m++) {
             const option = document.createElement('option');
-            option.value = m; // 0-indexed month
+            option.value = m;
             option.textContent = new Date(currentYear, m).toLocaleString('th-TH', { month: 'long' });
             monthJumpSelector.appendChild(option);
         }
+        // Set month selector to the current displayed month
         monthJumpSelector.value = currentDate.getMonth();
     }
+
+    // Event Listeners for Month Navigation Buttons (FIXED)
+    prevMonthBtn.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
 
     yearSelector.addEventListener('change', () => {
         currentDate.setFullYear(parseInt(yearSelector.value));
@@ -299,14 +345,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     goToCurrentMonthBtn.addEventListener('click', () => {
-        currentDate = new Date(); // Reset to today's month/year
+        currentDate = new Date();
         renderCalendar();
     });
 
     // --- Monthly Summary Dropdown ---
     function populateMonthSelector() {
-        monthSelector.innerHTML = ''; // Clear existing options
-        const sortedMonths = Object.keys(attendanceDataByMonth).sort().reverse(); // Sort descending
+        monthSelector.innerHTML = '';
+        const sortedMonths = Object.keys(attendanceDataByMonth).sort().reverse();
 
         if (sortedMonths.length === 0) {
             monthSelector.innerHTML = '<option value="">ไม่มีข้อมูล</option>';
@@ -320,25 +366,26 @@ document.addEventListener('DOMContentLoaded', () => {
         sortedMonths.forEach(monthKey => {
             const option = document.createElement('option');
             option.value = monthKey;
-            // Format for display (e.g., "กรกฎาคม 2568")
             const [year, monthNum] = monthKey.split('-');
             option.textContent = new Date(year, parseInt(monthNum) - 1).toLocaleString('th-TH', { month: 'long', year: 'numeric' });
             monthSelector.appendChild(option);
         });
 
-        // Set the selector to the currently displayed month if it exists in options
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         const currentMonthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
         if (sortedMonths.includes(currentMonthKey)) {
             monthSelector.value = currentMonthKey;
         } else if (sortedMonths.length > 0) {
-            monthSelector.value = sortedMonths[0]; // Select the latest available month
+            monthSelector.value = sortedMonths[0];
         } else {
-            monthSelector.value = ""; // No data, no selection
+            monthSelector.value = "";
         }
-        displaySelectedMonthSummary(); // Display summary for the initially selected month
+        displaySelectedMonthSummary();
     }
+
+    monthSelector.addEventListener('change', displaySelectedMonthSummary);
+
 
     function displaySelectedMonthSummary() {
         const selectedMonthKey = monthSelector.value;
@@ -356,12 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
         toast.textContent = message;
         toastContainer.appendChild(toast);
 
-        // Show the toast
         setTimeout(() => {
             toast.classList.add('show');
-        }, 10); // Small delay to allow CSS transition
+        }, 10);
 
-        // Hide and remove the toast
         setTimeout(() => {
             toast.classList.remove('show');
             toast.addEventListener('transitionend', () => {
@@ -375,13 +420,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm('คุณแน่ใจหรือไม่ที่จะรีเซ็ตข้อมูลทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้!')) {
             localStorage.removeItem('attendanceDataByMonth');
             Object.keys(attendanceDataByMonth).forEach(key => delete attendanceDataByMonth[key]);
-            currentDate = new Date(); // Reset current month to today
-            renderCalendar(); // Re-render calendar to reflect cleared data
-            updateSummaryForCurrentMonth(); // Update summary to 0
-            populateMonthSelector(); // Re-populate selector (should be empty now)
+            currentDate = new Date();
+            renderCalendar();
+            updateSummaryForCurrentMonth();
+            populateMonthSelector();
             showToast('ข้อมูลถูกรีเซ็ตเรียบร้อยแล้ว!');
         }
     });
 
-    renderCalendar(); // Initial render on page load
+    // Initial render on page load
+    renderCalendar();
 });
